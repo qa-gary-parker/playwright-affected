@@ -1,0 +1,34 @@
+version: 1
+
+# The directory Playwright reports test files relative to (the top-level testDir),
+# relative to the repo root. A changed test file here selects itself.
+test_dir: e2e/tests
+
+# Always selected on a PR.
+always_run_tags: ["@smoke"]
+
+# Any match runs the full suite.
+full_run_triggers:
+  - "**/package-lock.json"
+  - "**/pnpm-lock.yaml"
+  - ".github/workflows/**"
+  - "**/migrations/**"
+  - "**/openapi*.yaml"
+  - "e2e/fixtures/**"
+  - "e2e/playwright.config.ts"
+
+# Changes here never affect E2E.
+ignore_paths:
+  - "**/*.md"
+  - "docs/**"
+
+# Source globs -> tags and/or test paths (prefixes relative to test_dir).
+mappings:
+  - paths: ["src/auth/**", "services/auth/**"]
+    tags: ["@auth"]
+  - paths: ["src/editor/**"]
+    tags: ["@editor"]
+    tests: ["editor/"]
+
+# full: an unmapped source change runs the full suite. warn_only: list it and keep the selection.
+unmapped_behavior: full
