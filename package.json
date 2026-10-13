@@ -1,6 +1,6 @@
 {
   "name": "playwright-affected",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Change-based Playwright test selection: map a git diff to tags and test paths, fail open to the full suite.",
   "author": "Gary Parker",
   "repository": {
@@ -34,7 +34,7 @@
   },
   "license": "MIT",
   "dependencies": {
-    "yaml": "^2.9.1"
+    "yaml": "^2.0.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.0",
