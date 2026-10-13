@@ -12,7 +12,7 @@ Change-based test selection for Playwright. Maps a PR's git diff to tags, test p
 ## Quick start
 
 ```sh
-npm install -D github:qa-gary-parker/playwright-affected
+npm install -D playwright-affected
 
 # List your tests. Use the same --project and filters as your CI run.
 PLAYWRIGHT_JSON_OUTPUT_NAME=list.json npx playwright test --list --reporter=json > /dev/null

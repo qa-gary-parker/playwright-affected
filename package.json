@@ -11,7 +11,7 @@
   "bugs": "https://github.com/qa-gary-parker/playwright-affected/issues",
   "type": "module",
   "bin": {
-    "playwright-affected": "./dist/cli.js"
+    "playwright-affected": "dist/cli.js"
   },
   "files": [
     "dist/"
