@@ -2,12 +2,12 @@
 
 # playwright-affected
 
-Change-based test selection for Playwright. Maps a PR's git diff to tags and test paths, emits one `--grep`, and falls back to the full suite whenever it cannot decide.
+Change-based test selection for Playwright. Maps a PR's git diff to tags, test paths and Playwright projects, emits one `--grep`, and falls back to the full suite whenever it cannot decide.
 
 - One `--grep` per PR. Selected counts use Playwright's own grep matching, with the limits under [Caveats](#caveats).
 - Fails open. A global trigger, an unmapped source file, an empty diff, an empty selection, a map entry that matches no test, or any tool error runs the full suite.
 - Measures before you trust it. `replay` scores a map against merged PRs. `shadow` counts the failures a selection would have missed.
-- Works in any CI. It needs Node 22.5+ and git. `replay` also needs an authenticated `gh` CLI.
+- Works in any CI. It needs Node 22.5+ and git. `replay` also needs an authenticated `gh` CLI. Tested with Playwright 1.64.
 
 ## Config
 
@@ -42,7 +42,7 @@ npx playwright-affected replay --config e2e-map.yml --repo owner/name --base mai
 |---|---|---|
 | `select` | `result.json` (below) | 0 for any selection, including a tool error. 2 for bad arguments. 1 if `--out` cannot be written. |
 | `lint` | `unreachable`: tests no mapping or always-run tag can select. `dead_entries`: tags, `tests` prefixes and projects that match no test. | 1 if either is non-empty |
-| `shadow` | One row: selected and total tests, `unrun_tests`, `report_errors`, deterministic failures, missed failures, flaky tests excluded, `unselected_test_time_s` | 0. 1 if the report has no tests. |
+| `shadow` | One row: selected, total and `listed_tests` counts, `unrun_tests`, `report_errors`, deterministic failures, missed failures, flaky tests excluded, `unselected_test_time_s` | 0. 1 if the report has no tests. |
 | `shadow-report` | Rows, incomplete rows left out, selected rows, rows with misses, `miss_rate`, `unselected_test_time_s`, and the missed tests per PR | 0. 1 if a line is not JSON. |
 | `replay` | Full-run rate by reason, mapping coverage, mean share of tests run, top unmapped dirs, top triggers, per-PR rows | 0 |
 
@@ -94,7 +94,8 @@ npx playwright test ${GREP:+--grep "$GREP"}
 - If CI runs one job per project, skip a job whose project has no selected tests. This skips only when `selected_projects` is set and leaves the project out:
   `[ "$(jq --arg p "$PROJECT" '.selected_projects != null and (.selected_projects | index($p)) == null' result.json)" = true ] && exit 0`
 - Run selection on PRs only. Keep the full suite on the merge queue or default branch, and on a schedule.
-- `rm -f` stops a reused workspace from picking up the previous build's `result.json` if `select` fails to start.
+- `select` exits 0 when it falls back to the full suite, but 2 on bad arguments and 1 if it cannot write `--out`. Under `set -e` those stop the step, so a broken CI script fails instead of running the full suite.
+- `rm -f` stops a script that carries on after a failed `select` from reading the previous build's `result.json`.
 - The map is read from the PR branch, so a PR can change its own selection. The full suite on the merge queue is the safety net.
 
 ## Shadow mode

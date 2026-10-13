@@ -2,6 +2,13 @@
   "name": "playwright-affected",
   "version": "0.1.0",
   "description": "Change-based Playwright test selection: map a git diff to tags and test paths, fail open to the full suite.",
+  "author": "Gary Parker",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qa-gary-parker/playwright-affected.git"
+  },
+  "homepage": "https://github.com/qa-gary-parker/playwright-affected#readme",
+  "bugs": "https://github.com/qa-gary-parker/playwright-affected/issues",
   "type": "module",
   "bin": {
     "playwright-affected": "./dist/cli.js"
