@@ -88,7 +88,16 @@ describe('select', () => {
     expect(select(config, ['e2e/tests/a/b.spec.tsx', 'e2e/tests/c.spec.mjs']).tests).toEqual(['a/b.spec.tsx', 'c.spec.mjs']);
   });
 
-  it('checks triggers before the test file rule', () => {
+  it('drops a deleted test file instead of selecting it', () => {
+    const result = select(config, ['e2e/tests/auth/old.test.ts', 'src/editor/a.ts'], ['e2e/tests/auth/old.test.ts']);
+    expect(result).toMatchObject({ mode: 'selected', tests: [], tags: ['@editor', '@smoke'], ignored_paths: ['e2e/tests/auth/old.test.ts'] });
+  });
+
+  it('still maps a deleted source file', () => {
+    expect(select(config, ['src/editor/a.ts'], ['src/editor/a.ts']).tags).toEqual(['@editor', '@smoke']);
+  });
+
+    it('checks triggers before the test file rule', () => {
     const setup = parseConfig('version: 1\ntest_dir: e2e/tests\nfull_run_triggers: ["e2e/tests/setup/**"]\nmappings: []\n');
     expect(select(setup, ['e2e/tests/setup/global.test.ts']).full_reason).toBe('global_trigger');
   });

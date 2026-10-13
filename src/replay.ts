@@ -3,7 +3,7 @@ import type { Config } from './config.js';
 import type { ListedTest } from './playwright.js';
 import { applyList, type FullReason, type Selection, select } from './select.js';
 
-export type PrFiles = { number: number; files: string[] };
+export type PrFiles = { number: number; files: string[]; deleted?: string[] };
 
 export type ReplayRow = Pick<Selection, 'mode' | 'full_reason' | 'tags' | 'tests'> & {
   pr: number;
@@ -40,7 +40,7 @@ export function replay(config: Config, prs: PrFiles[], tests: ListedTest[] | nul
   let unmapped = 0;
 
   const rows = prs.map((pr): ReplayRow => {
-    const selection = select(config, pr.files);
+    const selection = select(config, pr.files, pr.deleted);
     const listed = tests !== null && tests.length > 0 ? applyList(selection, tests) : null;
     const s = listed ?? selection;
     if (s.full_reason) fullPrs[s.full_reason] = (fullPrs[s.full_reason] ?? 0) + 1;

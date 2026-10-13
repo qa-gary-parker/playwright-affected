@@ -25,7 +25,8 @@ const prs = [
 ];
 
 describe('replay', () => {
-  const summary = replay(config, prs, flattenReport(runFixture(['--list'])));
+  const list = flattenReport(runFixture(['--list']));
+  const summary = replay(config, prs, list);
 
   it('counts how each PR would have run', () => {
     expect(summary.prs).toBe(6);
@@ -53,7 +54,12 @@ describe('replay', () => {
     expect(summary.mean_selected_share).toBeCloseTo(5 / 6);
   });
 
-  it('leaves test shares empty without a test list', () => {
+  it('drops deleted specs, as select does', () => {
+    const moved = { number: 7, files: ['e2e/tests/auth/login.test.ts', 'e2e/tests/auth/old.test.ts'], deleted: ['e2e/tests/auth/old.test.ts'] };
+    expect(replay(config, [moved], list).rows[0]).toMatchObject({ mode: 'selected', tests: ['auth/login.test.ts'], selected_share: 0.5 });
+  });
+
+    it('leaves test shares empty without a test list', () => {
     const noList = replay(config, prs, null);
     expect(noList.rows[0].selected_share).toBeNull();
     expect(noList.mean_selected_share).toBeNull();

@@ -11,9 +11,17 @@ function ref(value: string): string {
 
 // Three-dot diff against the merge base; needs the base ref's history (fetch-depth: 0 or a fetched base).
 // --no-relative and --ignore-submodules=none override diff.relative and .gitmodules ignore settings.
-export function changedFiles(base: string, head: string, cwd?: string): string[] {
-  const args = ['diff', '--name-only', '--no-renames', '--no-relative', '--ignore-submodules=none', '-z', `${ref(base)}...${ref(head)}`];
-  return git(args, cwd).split('\0').filter(Boolean);
+// With --no-renames a rename is a deletion plus an addition.
+export function changedFiles(base: string, head: string, cwd?: string): { files: string[]; deleted: string[] } {
+  const args = ['diff', '--name-status', '--no-renames', '--no-relative', '--ignore-submodules=none', '-z', `${ref(base)}...${ref(head)}`];
+  const fields = git(args, cwd).split('\0');
+  const files: string[] = [];
+  const deleted: string[] = [];
+  for (let i = 0; i + 1 < fields.length; i += 2) {
+    files.push(fields[i + 1]);
+    if (fields[i] === 'D') deleted.push(fields[i + 1]);
+  }
+  return { files, deleted };
 }
 
 export function revParse(value: string, cwd?: string): string {

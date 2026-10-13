@@ -36,7 +36,7 @@ export function buildGrep(tags: string[], tests: string[]): string | null {
   return parts.length > 0 ? parts.join('|') : null;
 }
 
-export function select(config: Config, changedFiles: string[]): Selection {
+export function select(config: Config, changedFiles: string[], deletedFiles: string[] = []): Selection {
   const triggers: string[] = [];
   const ignored: string[] = [];
   const unmapped: string[] = [];
@@ -50,7 +50,9 @@ export function select(config: Config, changedFiles: string[]): Selection {
       continue;
     }
     if (testDirPrefix !== null && file.startsWith(testDirPrefix) && TEST_FILE.test(file)) {
-      tests.add(file.slice(testDirPrefix.length));
+      // A deleted spec has no tests left to run.
+      if (deletedFiles.includes(file)) ignored.push(file);
+      else tests.add(file.slice(testDirPrefix.length));
       continue;
     }
     if (matchesAny(file, config.ignorePaths)) {

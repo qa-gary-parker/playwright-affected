@@ -44,8 +44,9 @@ export function runSelect(opts: SelectOptions): SelectResult {
   try {
     const config = loadConfig(resolve(opts.cwd ?? '.', opts.config));
     headSha = revParse(head, opts.cwd);
-    files = changedFiles(opts.base, head, opts.cwd);
-    const selection = select(config, files);
+    const changed = changedFiles(opts.base, head, opts.cwd);
+    files = changed.files;
+    const selection = select(config, files, changed.deleted);
     const result = { base_ref: opts.base, head_sha: headSha, changed_files: files };
     if (!opts.list) return { ...result, ...selection, dead_entries: null, selected: null, total: null };
     return { ...result, ...applyList(selection, readTests(opts.list, opts.cwd)) };
@@ -83,14 +84,22 @@ export function runShadow(opts: { result: string; report: string; pr?: string })
 const gh = (args: string[]) => execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
 
 // Files come from REST per PR: `gh pr list --json files` caps at 100 files per PR and 502s on large batches.
+// A rename's old path is listed as removed, matching git diff --no-renames.
+const FILES_JQ = '.[] | .status + "\\t" + .filename, (.previous_filename // empty | "removed\\t" + .)';
+
 export function fetchMergedPrs(repo: string, base: string, limit: number): PrFiles[] {
   const prs = JSON.parse(
     gh(['pr', 'list', '--repo', repo, '--base', base, '--state', 'merged', '--limit', String(limit), '--json', 'number']),
   ) as { number: number }[];
-  return prs.map((pr) => ({
-    number: pr.number,
-    files: gh(['api', '--paginate', `repos/${repo}/pulls/${pr.number}/files`, '--jq', '.[] | .filename, (.previous_filename // empty)']).split('\n').filter(Boolean),
-  }));
+  return prs.map((pr) => {
+    const lines = gh(['api', '--paginate', `repos/${repo}/pulls/${pr.number}/files`, '--jq', FILES_JQ]).split('\n').filter(Boolean);
+    const entries = lines.map((line) => [line.slice(0, line.indexOf('\t')), line.slice(line.indexOf('\t') + 1)]);
+    return {
+      number: pr.number,
+      files: entries.map(([, file]) => file),
+      deleted: entries.filter(([status]) => status === 'removed').map(([, file]) => file),
+    };
+  });
 }
 
 export function runReplay(opts: { config: string; repo: string; base: string; limit: number; list?: string }): ReplaySummary {

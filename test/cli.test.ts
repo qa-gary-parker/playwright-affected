@@ -120,12 +120,12 @@ describe('cli', () => {
     writeFileSync(
       gh,
       `#!/bin/sh
-echo "$*" >> "${join(dir, 'gh.log')}"
+printf '%s\\n' "$*" >> "${join(dir, 'gh.log')}"
 case "$1" in
   pr) echo '[{"number":11},{"number":12}]' ;;
   api) case "$3" in
-    */11/files) printf 'src/a.ts\\n' ;;
-    *) printf 'docs/x.md\\nsrc/new.ts\\nsrc/old.ts\\n' ;;
+    */11/files) printf 'modified\\tsrc/a.ts\\n' ;;
+    *) printf 'added\\tdocs/x.md\\nadded\\tsrc/new.ts\\nremoved\\tsrc/old.ts\\n' ;;
   esac ;;
 esac
 `,
@@ -143,8 +143,9 @@ esac
       unmapped_files: 1,
       top_unmapped_dirs: [{ dir: 'docs', files: 1, prs: 1 }],
     });
-    expect(readFileSync(join(dir, 'gh.log'), 'utf8').split('\n')[0]).toBe(
+    expect(readFileSync(join(dir, 'gh.log'), 'utf8').split('\n').slice(0, 2)).toEqual([
       'pr list --repo o/r --base main --state merged --limit 2 --json number',
-    );
+      'api --paginate repos/o/r/pulls/11/files --jq .[] | .status + "\\t" + .filename, (.previous_filename // empty | "removed\\t" + .)',
+    ]);
   });
 });

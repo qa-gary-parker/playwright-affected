@@ -65,6 +65,7 @@ beforeAll(() => {
       'src/billing/b.ts': '1',
       'src/billing/gone.ts': '1',
       'src/legacy/old.ts': '1',
+      'e2e/tests/auth/old.test.ts': '1',
       'e2e-map.yml': CONFIG,
       'broken.yml': 'version: 9',
       'list.json': JSON.stringify(runFixture(['--list'])),
@@ -84,6 +85,7 @@ beforeAll(() => {
   git('branch', 'paths');
   git('branch', 'legacy-only');
   git('branch', 'bump-sub');
+  git('branch', 'move-spec');
   commit({ 'src/legacy/old.ts': '2' }, 'main moves on');
 
   git('checkout', '-q', 'feature');
@@ -93,6 +95,9 @@ beforeAll(() => {
   commit({ 'src/billing/gone.ts': null }, 'rename and delete');
   git('checkout', '-q', 'legacy-only');
   commit({ 'src/legacy/old.ts': '3' }, 'change legacy');
+  git('checkout', '-q', 'move-spec');
+  git('mv', 'e2e/tests/auth/old.test.ts', 'e2e/tests/auth/login.test.ts');
+  git('commit', '-qm', 'rename spec');
   git('checkout', '-q', 'bump-sub');
   execFileSync('git', ['-C', join(repo, 'vendor/sub'), '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'sub 2']);
   git('add', 'vendor/sub');
@@ -140,6 +145,19 @@ describe('runSelect', () => {
     const result = runSelect({ config: 'e2e-map.yml', base: 'main', head: 'bump-sub', cwd: repo });
     expect(result.changed_files).toEqual(['vendor/sub']);
     expect(result.full_reason).toBe('unmapped_paths');
+  });
+
+  it('selects the new path of a renamed spec and drops the old one', () => {
+    const result = runSelect({ config: 'e2e-map.yml', base: 'main', head: 'move-spec', list: 'list.json', cwd: repo });
+    expect(result).toMatchObject({
+      changed_files: ['e2e/tests/auth/login.test.ts', 'e2e/tests/auth/old.test.ts'],
+      mode: 'selected',
+      tests: ['auth/login.test.ts'],
+      ignored_paths: ['e2e/tests/auth/old.test.ts'],
+      dead_entries: [],
+      selected: 6,
+      total: 12,
+    });
   });
 
   it('lists repo-root paths when git is set to diff relative to a subdirectory', () => {

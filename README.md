@@ -14,7 +14,7 @@ Change-based test selection for Playwright. Maps a PR's git diff to tags and tes
 See [`examples/e2e-map.yml`](examples/e2e-map.yml). Each changed file is checked against these steps in order, and the first step that matches decides:
 
 1. `full_run_triggers`: run the full suite.
-2. A `*.test.*` or `*.spec.*` file under `test_dir`: select that file.
+2. A `*.test.*` or `*.spec.*` file under `test_dir`: select that file. If the PR deletes it, or renames it away, skip it.
 3. `ignore_paths`: skip the file.
 4. `mappings`: add the `tags` and `tests` of every mapping that matches.
 5. Anything else is unmapped. `unmapped_behavior: full` runs the full suite.
@@ -74,7 +74,7 @@ npx playwright-affected replay --config e2e-map.yml --repo owner/name --base mai
 - If `mode` is `full`, `grep` is `null`.
 - Without `--list`, `dead_entries`, `selected` and `total` are `null`.
 - A `tool_error` result also has an `error` message.
-- `dead_entry` also fires when a PR deletes a spec, because the deleted path matches no test.
+- A deleted spec, including the old path of a renamed one, is listed in `ignored_paths`.
 
 ## CI
 
