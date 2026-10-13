@@ -1,16 +1,17 @@
 #!/usr/bin/env node
 import { writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
-import { runLint, runReplay, runSelect, runShadow, runShadowReport } from './commands.js';
+import { runInit, runLint, runReplay, runSelect, runShadow, runShadowReport } from './commands.js';
 
 const USAGE = `Usage:
+  playwright-affected init   --list <list.json> [--out <map.yml>]
   playwright-affected select --config <map.yml> --base <ref> [--head <ref>] [--list <list.json>] [--out <result.json>]
   playwright-affected lint   --config <map.yml> --list <list.json>
   playwright-affected shadow --result <result.json> --report <report.json> [--pr <id>]
   playwright-affected shadow-report --rows <rows.jsonl>
   playwright-affected replay --config <map.yml> --repo <owner/name> --base <branch> [--limit <n>] [--list <list.json>] [--out <file>]
 
-<list.json>:   PLAYWRIGHT_JSON_OUTPUT_NAME=list.json npx playwright test --list --reporter=json
+<list.json>:   PLAYWRIGHT_JSON_OUTPUT_NAME=list.json npx playwright test --list --reporter=json > /dev/null
 <report.json>: a full run with --reporter=json`;
 
 const OPTIONS = {
@@ -49,6 +50,13 @@ function main(argv: string[]): number {
   const { values } = parseArgs({ args: rest, options: OPTIONS, strict: true });
 
   switch (command) {
+    case 'init': {
+      const [list] = required(values, 'list');
+      const out = values.out ?? 'e2e-map.yml';
+      runInit({ list, out });
+      log(`wrote ${out}. Next: add mappings, then run lint and replay on it.`);
+      return 0;
+    }
     case 'select': {
       const [config, base] = required(values, 'config', 'base');
       const result = runSelect({ config, base, head: values.head, list: values.list });

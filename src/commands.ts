@@ -1,8 +1,9 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadConfig } from './config.js';
-import { changedFiles, revParse } from './git.js';
+import { changedFiles, repoRoot, revParse } from './git.js';
+import { starterMap } from './init.js';
 import { lint } from './lint.js';
 import { flattenReport, type ListedTest, reportErrors } from './playwright.js';
 import { type PrFiles, type ReplaySummary, replay } from './replay.js';
@@ -20,19 +21,19 @@ export type SelectResult = Selection & {
   error?: string;
 };
 
-function readReport(file: string, cwd?: string): { tests: ListedTest[]; errors: string[] } {
+function readReport(file: string, cwd?: string): { report: unknown; tests: ListedTest[]; errors: string[] } {
   const report = JSON.parse(readFileSync(resolve(cwd ?? '.', file), 'utf8'));
   const tests = flattenReport(report);
   const errors = reportErrors(report);
   if (tests.length === 0) throw new Error(`no tests in ${file}${errors.length > 0 ? `: ${errors[0]}` : ''}`);
-  return { tests, errors };
+  return { report, tests, errors };
 }
 
 // A list with errors is missing the tests of any spec that failed to load.
-function readTests(file: string, cwd?: string): ListedTest[] {
-  const { tests, errors } = readReport(file, cwd);
+function readList(file: string, cwd?: string): { report: unknown; tests: ListedTest[] } {
+  const { report, tests, errors } = readReport(file, cwd);
   if (errors.length > 0) throw new Error(`${file} has errors: ${errors[0]}`);
-  return tests;
+  return { report, tests };
 }
 
 export type SelectOptions = { config: string; base: string; head?: string; list?: string; cwd?: string };
@@ -50,7 +51,7 @@ export function runSelect(opts: SelectOptions): SelectResult {
     const selection = select(config, files, changed.deleted);
     const result = { base_ref: opts.base, head_sha: headSha, changed_files: files };
     if (!opts.list) return { ...result, ...selection, dead_entries: null, selected: null, total: null, selected_projects: null };
-    return { ...result, ...applyList(selection, readTests(opts.list, opts.cwd)) };
+    return { ...result, ...applyList(selection, readList(opts.list, opts.cwd).tests) };
   } catch (error) {
     return {
       base_ref: opts.base,
@@ -75,7 +76,13 @@ export function runSelect(opts: SelectOptions): SelectResult {
 }
 
 export function runLint(opts: { config: string; list: string }) {
-  return lint(loadConfig(opts.config), readTests(opts.list));
+  return lint(loadConfig(opts.config), readList(opts.list).tests);
+}
+
+export function runInit(opts: { list: string; out: string }) {
+  if (existsSync(opts.out)) throw new Error(`${opts.out} already exists`);
+  const { report, tests } = readList(opts.list);
+  writeFileSync(opts.out, starterMap(report, tests, repoRoot()));
 }
 
 export function runShadow(opts: { result: string; report: string; pr?: string }): ShadowRow {
@@ -121,5 +128,5 @@ export function fetchMergedPrs(repo: string, base: string, limit: number): PrFil
 
 export function runReplay(opts: { config: string; repo: string; base: string; limit: number; list?: string }): ReplaySummary {
   const config = loadConfig(opts.config);
-  return replay(config, fetchMergedPrs(opts.repo, opts.base, opts.limit), opts.list ? readTests(opts.list) : null);
+  return replay(config, fetchMergedPrs(opts.repo, opts.base, opts.limit), opts.list ? readList(opts.list).tests : null);
 }

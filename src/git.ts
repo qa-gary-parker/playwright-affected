@@ -27,3 +27,7 @@ export function changedFiles(base: string, head: string, cwd?: string): { files:
 export function revParse(value: string, cwd?: string): string {
   return git(['rev-parse', '--verify', ref(value)], cwd).trim();
 }
+
+export function repoRoot(cwd?: string): string {
+  return git(['rev-parse', '--show-toplevel'], cwd).trim();
+}

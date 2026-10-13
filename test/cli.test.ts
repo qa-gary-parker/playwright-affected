@@ -48,12 +48,27 @@ describe('cli', () => {
   it.each([
     [['select', '--config', 'map.yml', '--base', 'main', '--bogus'], /Unknown option '--bogus'/],
     [['frobnicate'], /unknown command "frobnicate"/],
+    [['init'], /missing --list/],
     [['replay', '--config', 'map.yml', '--repo', 'o/r', '--base', 'main', '--limit', 'abc'], /--limit must be a positive integer/],
   ])('exits 2 and prints usage for bad arguments: %s', (args, message) => {
     const result = run(args);
     expect(result.status).toBe(2);
     expect(result.stderr).toMatch(message);
     expect(result.stderr).toContain('Usage:');
+  });
+
+  it('init writes a starter map and never overwrites one', () => {
+    const repo = fileURLToPath(new URL('..', import.meta.url));
+    const out = join(dir, 'starter.yml');
+    const init = () => spawnSync(process.execPath, [cli, 'init', '--list', join(dir, 'list.json'), '--out', out], { cwd: repo, encoding: 'utf8' });
+    const first = init();
+    expect(first.status).toBe(0);
+    const text = readFileSync(out, 'utf8');
+    expect(text).toContain('test_dir: "test/fixtures/pw/tests"');
+    const second = init();
+    expect(second.status).toBe(1);
+    expect(second.stderr).toContain(`${out} already exists`);
+    expect(readFileSync(out, 'utf8')).toBe(text);
   });
 
   it('select exits 1 when --out cannot be written', () => {

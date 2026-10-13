@@ -9,6 +9,35 @@ Change-based test selection for Playwright. Maps a PR's git diff to tags, test p
 - Measures before you trust it. `replay` scores a map against merged PRs. `shadow` counts the failures a selection would have missed.
 - Works in any CI. It needs Node 22.5+ and git. `replay` also needs an authenticated `gh` CLI. Tested with Playwright 1.64.
 
+## Quick start
+
+```sh
+npm install -D github:qa-gary-parker/playwright-affected
+
+# List your tests. Use the same --project and filters as your CI run.
+PLAYWRIGHT_JSON_OUTPUT_NAME=list.json npx playwright test --list --reporter=json > /dev/null
+
+# Write a starter map to e2e-map.yml. It works out test_dir and lists your tags and test folders.
+npx playwright-affected init --list list.json
+
+# See what your branch would run.
+npx playwright-affected select --config e2e-map.yml --base origin/main --list list.json
+```
+
+The starter map selects the spec files a branch changes and runs the full suite for any other change. To run fewer tests:
+
+1. Run `replay` to score the map against your last 200 merged PRs. `top_unmapped_dirs` shows what to map first.
+2. Add `mappings` for those folders. Run `lint` to find tests no mapping reaches and entries that match no test.
+3. Add a script that runs only the affected tests. `npm run test:affected -- --list` shows them without running them.
+
+   ```json
+   "test:affected": "PLAYWRIGHT_JSON_OUTPUT_NAME=list.json playwright test --list --reporter=json > /dev/null && playwright-affected select --config e2e-map.yml --base origin/main --list list.json --out result.json && G=$(node -p \"require('./result.json').grep || ''\") && playwright test ${G:+--grep \"$G\"}"
+   ```
+
+4. For CI, see [CI](#ci). Use [shadow mode](#shadow-mode) before you make selection blocking.
+
+Add `list.json` and `result.json` to `.gitignore`.
+
 ## Config
 
 See [`examples/e2e-map.yml`](examples/e2e-map.yml). Each changed file is checked against these steps in order, and the first step that matches decides:
@@ -28,11 +57,10 @@ See [`examples/e2e-map.yml`](examples/e2e-map.yml). Each changed file is checked
 
 ## Commands
 
-It is not on npm yet. Install it from GitHub, which builds it on install: `npm install -D github:qa-gary-parker/playwright-affected`.
-
 ```sh
-PLAYWRIGHT_JSON_OUTPUT_NAME=list.json npx playwright test --list --reporter=json
+PLAYWRIGHT_JSON_OUTPUT_NAME=list.json npx playwright test --list --reporter=json > /dev/null
 
+npx playwright-affected init   --list list.json
 npx playwright-affected select --config e2e-map.yml --base origin/main --list list.json --out result.json
 npx playwright-affected lint   --config e2e-map.yml --list list.json
 npx playwright-affected shadow --result result.json --report full-run.json --pr 123
@@ -42,6 +70,7 @@ npx playwright-affected replay --config e2e-map.yml --repo owner/name --base mai
 
 | Command | Output | Exit code |
 |---|---|---|
+| `init` | A starter `e2e-map.yml`, or the `--out` path | 0. 1 if the file exists or the list has errors or no tests. |
 | `select` | `result.json` (below) | 0 for any selection, including a tool error. 2 for bad arguments. 1 if `--out` cannot be written. |
 | `lint` | `unreachable`: tests no mapping or always-run tag can select. `dead_entries`: tags, `tests` prefixes and projects that match no test. | 1 if either is non-empty |
 | `shadow` | One row: selected, total and `listed_tests` counts, `unrun_tests`, `report_errors`, deterministic failures, missed failures, flaky tests excluded, `unselected_test_time_s` | 0. 1 if the report has no tests. |
@@ -51,7 +80,7 @@ npx playwright-affected replay --config e2e-map.yml --repo owner/name --base mai
 - `select` needs the base ref's history: use `fetch-depth: 0` or fetch the base branch.
 - Pass `--list` to `select`. Without it, `select` cannot check that each selected entry matches a test, and a grep that matches nothing makes `playwright test` fail with "No tests found".
 - Generate `list.json` with the same `--project` and filters as the CI run, so the counts match.
-- Write reports with `PLAYWRIGHT_JSON_OUTPUT_NAME`, not `> file`. Anything the config prints to stdout, such as dotenv's log line, corrupts a redirected report.
+- Write reports with `PLAYWRIGHT_JSON_OUTPUT_NAME`, not `> file`. Anything the config prints to stdout, such as dotenv's log line, corrupts a redirected report. Playwright still prints the test list to stdout, so send it to `/dev/null`.
 - A list with errors (a spec that failed to load) or no tests is rejected: `select` runs the full suite, and `lint` and `replay` exit 1.
 
 ## result.json
