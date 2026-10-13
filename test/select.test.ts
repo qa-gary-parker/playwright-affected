@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseConfig } from '../src/config.js';
-import { select } from '../src/select.js';
+import type { ListedTest } from '../src/playwright.js';
+import { applyList, select } from '../src/select.js';
 
 const config = parseConfig(`
 version: 1
@@ -38,14 +39,14 @@ describe('select', () => {
     expect(result.full_reason).toBeNull();
     expect(result.tags).toEqual(['@editor', '@smoke']);
     expect(result.tests).toEqual([]);
-    expect(result.grep).toBe('@editor|@smoke');
+    expect(result.grep).toBe('(?:^|\\s)(?:@editor|@smoke)(?=\\s|$)');
   });
 
   it('unions tags and test paths across mappings', () => {
     const result = select(config, ['src/editor/a.ts', 'services/billing/x.php']);
     expect(result.tags).toEqual(['@billing', '@editor', '@smoke']);
     expect(result.tests).toEqual(['billing/']);
-    expect(result.grep).toBe('@billing|@editor|@smoke|(?:^|\\s)billing/');
+    expect(result.grep).toBe('(?:^|\\s)(?:@billing|@editor|@smoke)(?=\\s|$)|(?:^|\\s)(?:billing/)');
   });
 
   it('fails open when an app file has no mapping', () => {
@@ -67,7 +68,7 @@ describe('select', () => {
     const result = select(config, ['docs/guide.md', 'README.md']);
     expect(result.mode).toBe('selected');
     expect(result.tags).toEqual(['@smoke']);
-    expect(result.grep).toBe('@smoke');
+    expect(result.grep).toBe('(?:^|\\s)(?:@smoke)(?=\\s|$)');
   });
 
   it('checks triggers before ignore rules', () => {
@@ -80,7 +81,7 @@ describe('select', () => {
     const result = select(config, ['e2e/tests/auth/login.test.ts']);
     expect(result.mode).toBe('selected');
     expect(result.tests).toEqual(['auth/login.test.ts']);
-    expect(result.grep).toBe('@smoke|(?:^|\\s)auth/login\\.test\\.ts');
+    expect(result.grep).toBe('(?:^|\\s)(?:@smoke)(?=\\s|$)|(?:^|\\s)(?:auth/login\\.test\\.ts)');
   });
 
   it('selects a changed test file even when an ignore rule also matches it', () => {
@@ -123,6 +124,50 @@ describe('select', () => {
   });
 });
 
+describe('applyList', () => {
+  const listed = (file: string, title: string, tags: string[]): ListedTest => ({
+    id: `p › ${file} › ${title}`,
+    project: 'p',
+    file,
+    tags,
+    grepTitle: ['p', file, title, ...tags].join(' '),
+    status: 'expected',
+    durationMs: 0,
+    ran: true,
+  });
+  const tests = [
+    listed('auth/login.spec.ts', 'logs in', ['@identity']),
+    listed('author/a.spec.ts', 'writes', ['@authoring']),
+    listed('admin/a.spec.ts', 'shows billing page', []),
+  ];
+  const map = (entry: string) => parseConfig(`version: 1\nmappings:\n  - paths: ["src/**"]\n    ${entry}\n`);
+
+  it('falls back to the full suite when a tag only matches a longer tag', () => {
+    expect(applyList(select(map('tags: ["@auth"]'), ['src/a.ts']), tests)).toMatchObject({
+      mode: 'full',
+      full_reason: 'dead_entry',
+      dead_entries: ['@auth'],
+    });
+  });
+
+  it('falls back to the full suite when a test path only matches a word in a title', () => {
+    expect(applyList(select(map('tests: ["billing"]'), ['src/a.ts']), tests)).toMatchObject({
+      mode: 'full',
+      full_reason: 'dead_entry',
+      dead_entries: ['billing'],
+    });
+  });
+
+  it('matches tags whole and ignoring case, as Playwright --grep does', () => {
+    expect(applyList(select(map('tags: ["@Identity"]'), ['src/a.ts']), tests)).toMatchObject({
+      mode: 'selected',
+      dead_entries: [],
+      selected: 1,
+      total: 3,
+    });
+  });
+});
+
 describe('parseConfig', () => {
   it('applies defaults for optional fields', () => {
     const parsed = parseConfig('version: 1\nmappings: []\n');
@@ -147,7 +192,7 @@ describe('parseConfig', () => {
 
   it('parses the shipped example', () => {
     const example = parseConfig(readFileSync(new URL('../examples/e2e-map.yml', import.meta.url), 'utf8'));
-    expect(select(example, ['src/editor/a.ts']).grep).toBe('@editor|@smoke|(?:^|\\s)editor/');
+    expect(select(example, ['src/editor/a.ts']).grep).toBe('(?:^|\\s)(?:@editor|@smoke)(?=\\s|$)|(?:^|\\s)(?:editor/)');
   });
 
   it.each([

@@ -24,9 +24,12 @@ const matchesAny = (file: string, globs: string[]) => globs.some((glob) => match
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Playwright greps "<project> <file relative to testDir> <describes> <title> <tags>",
-// so a test path matches when it starts a whitespace-separated token.
+// so a tag must be a whole token and a test path must start one.
 export function buildGrep(tags: string[], tests: string[]): string | null {
-  const parts = [...tags.map(escapeRegExp), ...tests.map((t) => `(?:^|\\s)${escapeRegExp(t)}`)];
+  const group = (items: string[]) => `(?:${items.map(escapeRegExp).join('|')})`;
+  const parts = [];
+  if (tags.length > 0) parts.push(`(?:^|\\s)${group(tags)}(?=\\s|$)`);
+  if (tests.length > 0) parts.push(`(?:^|\\s)${group(tests)}`);
   return parts.length > 0 ? parts.join('|') : null;
 }
 
@@ -75,9 +78,14 @@ export function select(config: Config, changedFiles: string[]): Selection {
   return { mode: 'selected', full_reason: null, ...base, tags: sortedTags, tests: sortedTests, grep };
 }
 
+// Checked against each test's tags and file, not the grep, so a stale entry cannot pass
+// by matching a word in some title. Case-insensitive, like --grep.
 export function deadEntries(tags: string[], tests: string[], listed: ListedTest[]): string[] {
-  const matchesNone = (grep: string | null) => !listed.some(grepMatcher(grep));
-  const dead = [...tags.filter((t) => matchesNone(buildGrep([t], []))), ...tests.filter((t) => matchesNone(buildGrep([], [t])))];
+  const lower = (text: string) => text.toLowerCase();
+  const dead = [
+    ...tags.filter((tag) => !listed.some((t) => t.tags.some((x) => lower(x) === lower(tag)))),
+    ...tests.filter((path) => !listed.some((t) => lower(t.file).startsWith(lower(path)))),
+  ];
   return [...new Set(dead)].sort();
 }
 

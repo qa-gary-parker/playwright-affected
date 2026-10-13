@@ -9,6 +9,7 @@ const listed = (id: string, grepTitle: string, durationMs: number): ListedTest =
   id,
   project: 'p',
   file: 'f',
+  tags: [],
   grepTitle,
   status: 'expected',
   durationMs,
@@ -48,7 +49,7 @@ describe('shadow', () => {
   });
 
   it('sums the durations of unselected tests in seconds', () => {
-    const tests = [listed('1', ' p f one @a', 5000), listed('2', ' p f two', 1250), listed('3', ' p f three', 2000)];
+    const tests = [listed('1', 'p f one @a', 5000), listed('2', 'p f two', 1250), listed('3', 'p f three', 2000)];
     expect(shadow({ mode: 'selected', grep: '@a' }, tests, null).unselected_test_time_s).toBe(3.3);
   });
 

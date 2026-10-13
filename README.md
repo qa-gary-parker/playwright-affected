@@ -20,6 +20,7 @@ See [`examples/e2e-map.yml`](examples/e2e-map.yml). Each changed file is checked
 5. Anything else is unmapped. `unmapped_behavior: full` runs the full suite.
 
 - `test_dir` is the directory Playwright reports test files relative to, written relative to the repo root. That is the top-level `testDir` in `playwright.config`, or the config file's directory if `testDir` is only set per project. `.` is the repo root.
+- A tag matches tests that have exactly that tag, ignoring case. `@auth` does not match `@authoring`.
 - `tests` entries are plain path prefixes relative to `test_dir`, such as `editor/`. They are not globs.
 - Globs use Node's `path.matchesGlob`. `*` and `**` do not match a path segment that starts with a dot, so write `.github/**`, not `**/*.yml`, to match `.github/workflows/ci.yml`.
 
@@ -59,7 +60,7 @@ npx playwright-affected replay --config e2e-map.yml --repo owner/name --base mai
   "unmapped_paths": [],
   "tags": ["@editor", "@smoke"],
   "tests": ["editor/"],
-  "grep": "@editor|@smoke|(?:^|\\s)editor/",
+  "grep": "(?:^|\\s)(?:@editor|@smoke)(?=\\s|$)|(?:^|\\s)(?:editor/)",
   "dead_entries": [],
   "selected": 38,
   "total": 240

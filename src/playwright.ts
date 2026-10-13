@@ -4,6 +4,7 @@ export type ListedTest = {
   id: string;
   project: string;
   file: string;
+  tags: string[];
   grepTitle: string;
   status: TestStatus;
   durationMs: number;
@@ -36,7 +37,8 @@ export function flattenReport(report: unknown): ListedTest[] {
           id: [test.projectName, spec.file, ...titlePath].join(' › '),
           project: test.projectName,
           file: spec.file,
-          grepTitle: ['', test.projectName, spec.file, ...titlePath, ...tags].join(' '),
+          tags,
+          grepTitle: [test.projectName, spec.file, ...titlePath, ...tags].join(' '),
           status: test.status,
           durationMs: test.results.reduce((sum, r) => sum + r.duration, 0),
           ran: test.results.length > 0 && test.results.every((r) => r.status !== 'interrupted'),

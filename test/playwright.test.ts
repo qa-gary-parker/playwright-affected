@@ -21,6 +21,9 @@ describe('grepMatcher matches what Playwright --grep selects', () => {
     [buildGrep([], ['editor/editor.test.ts']), 4],
     [buildGrep([], ['uth/']), 0],
     ['@nomatch', 0],
+    ['@SMOKE', 4],
+    [buildGrep(['@auth'], []), 2],
+    [buildGrep(['@edit'], []), 0],
   ])('%s', (grep, expected) => {
     const ours = all.filter(grepMatcher(grep)).map((t) => t.id).sort();
     const playwrights = flattenReport(runFixture(['--list', '--grep', grep as string])).map((t) => t.id).sort();
