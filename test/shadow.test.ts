@@ -37,6 +37,8 @@ describe('shadow', () => {
 
   it('reports no misses when the selection covers the failures', () => {
     const row = shadow({ mode: 'selected', grep: '@editor|@smoke' }, fullRun, null);
+    expect(row.pr_id).toBeNull();
+    expect(row.head_sha).toBeNull();
     expect(row.full_suite_failures).toHaveLength(2);
     expect(row.missed_failures).toEqual([]);
   });

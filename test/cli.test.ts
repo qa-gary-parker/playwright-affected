@@ -45,6 +45,23 @@ describe('cli', () => {
     expect(result.stderr).toContain('Usage:');
   });
 
+  it.each([
+    [['select', '--config', 'map.yml', '--base', 'main', '--bogus'], /Unknown option '--bogus'/],
+    [['frobnicate'], /unknown command "frobnicate"/],
+    [['replay', '--config', 'map.yml', '--repo', 'o/r', '--base', 'main', '--limit', 'abc'], /--limit must be a positive integer/],
+  ])('exits 2 and prints usage for bad arguments: %s', (args, message) => {
+    const result = run(args);
+    expect(result.status).toBe(2);
+    expect(result.stderr).toMatch(message);
+    expect(result.stderr).toContain('Usage:');
+  });
+
+  it('select exits 1 when --out cannot be written', () => {
+    const result = run(['select', '--config', 'map.yml', '--base', 'main', '--out', 'missing/result.json'], { GIT_DIR: join(dir, 'none') });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/ENOENT/);
+  });
+
   it('lint exits 0 when the map reaches every test', () => {
     const result = run(['lint', '--config', 'map.yml', '--list', 'list.json']);
     expect(result.status).toBe(0);

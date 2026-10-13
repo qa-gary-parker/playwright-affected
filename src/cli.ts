@@ -76,7 +76,9 @@ function main(argv: string[]): number {
     }
     case 'replay': {
       const [config, repo, base] = required(values, 'config', 'repo', 'base');
-      const summary = runReplay({ config, repo, base, limit: Number(values.limit ?? 200), list: values.list });
+      const limit = Number(values.limit ?? 200);
+      if (!Number.isInteger(limit) || limit < 1) throw new UsageError('--limit must be a positive integer');
+      const summary = runReplay({ config, repo, base, limit, list: values.list });
       emit(summary, values.out);
       log(
         [

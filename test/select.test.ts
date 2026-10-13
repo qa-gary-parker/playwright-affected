@@ -84,6 +84,15 @@ describe('select', () => {
     expect(result.grep).toBe('(?:^|\\s)(?:@smoke)(?=\\s|$)|(?:^|\\s)(?:auth/login\\.test\\.ts)');
   });
 
+  it('selects changed *.spec.* files, the Playwright default naming', () => {
+    expect(select(config, ['e2e/tests/a/b.spec.tsx', 'e2e/tests/c.spec.mjs']).tests).toEqual(['a/b.spec.tsx', 'c.spec.mjs']);
+  });
+
+  it('checks triggers before the test file rule', () => {
+    const setup = parseConfig('version: 1\ntest_dir: e2e/tests\nfull_run_triggers: ["e2e/tests/setup/**"]\nmappings: []\n');
+    expect(select(setup, ['e2e/tests/setup/global.test.ts']).full_reason).toBe('global_trigger');
+  });
+
   it('selects a changed test file even when an ignore rule also matches it', () => {
     const broadIgnore = { ...config, ignorePaths: ['e2e/**'] };
     const result = select(broadIgnore, ['e2e/tests/auth/login.test.ts', 'e2e/tests/auth/helpers.ts']);

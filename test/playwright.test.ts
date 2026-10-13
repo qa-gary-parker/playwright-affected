@@ -13,6 +13,21 @@ describe('flattenReport', () => {
 
 });
 
+describe('flattenReport results', () => {
+  const report = (results: { status: string; duration: number }[]) => ({
+    suites: [{ title: 'a.test.ts', file: 'a.test.ts', specs: [{ title: 't', file: 'a.test.ts', tags: [], tests: [{ projectName: 'p', status: 'flaky', results }] }] }],
+  });
+
+  it('sums the duration of every attempt, including retries', () => {
+    expect(flattenReport(report([{ status: 'failed', duration: 100 }, { status: 'passed', duration: 250 }]))[0].durationMs).toBe(350);
+  });
+
+  it('counts an interrupted test as not run', () => {
+    expect(flattenReport(report([{ status: 'interrupted', duration: 5 }]))[0].ran).toBe(false);
+    expect(flattenReport(report([{ status: 'passed', duration: 5 }]))[0].ran).toBe(true);
+  });
+});
+
 describe('reportErrors', () => {
   it('returns the first line of each run-level error', () => {
     const report = { suites: [], errors: [{ message: 'SyntaxError: Unexpected token\n    at broken.test.ts:1' }] };
@@ -39,6 +54,7 @@ describe('grepMatcher matches what Playwright --grep selects', () => {
     [buildGrep([], ['uth/']), 0],
     ['@nomatch', 0],
     ['@SMOKE', 4],
+    ['^chromium\\s', 6],
     [buildGrep(['@auth'], []), 2],
     [buildGrep(['@edit'], []), 0],
   ])('%s', (grep, expected) => {
