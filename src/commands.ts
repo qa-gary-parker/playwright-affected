@@ -7,7 +7,7 @@ import { lint } from './lint.js';
 import { flattenReport, type ListedTest, reportErrors } from './playwright.js';
 import { type PrFiles, type ReplaySummary, replay } from './replay.js';
 import { applyList, type Selection, select } from './select.js';
-import { type ShadowRow, shadow } from './shadow.js';
+import { type ShadowReport, type ShadowRow, shadow, shadowReport } from './shadow.js';
 
 export type SelectResult = Selection & {
   base_ref: string;
@@ -82,6 +82,20 @@ export function runShadow(opts: { result: string; report: string; pr?: string })
   const selection = JSON.parse(readFileSync(opts.result, 'utf8')) as SelectResult;
   const { tests, errors } = readReport(opts.report);
   return shadow(selection, tests, opts.pr ?? null, errors);
+}
+
+// One shadow row per line, as `jq -c . row.json >> rows.jsonl` writes them.
+export function runShadowReport(opts: { rows: string }): ShadowReport {
+  const lines = readFileSync(opts.rows, 'utf8').split('\n');
+  const rows = lines.flatMap((line, i) => {
+    if (line.trim() === '') return [];
+    try {
+      return [JSON.parse(line) as ShadowRow];
+    } catch (error) {
+      throw new Error(`${opts.rows}:${i + 1}: ${(error as Error).message}`);
+    }
+  });
+  return shadowReport(rows);
 }
 
 const gh = (args: string[]) => execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });

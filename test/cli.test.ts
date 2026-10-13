@@ -95,6 +95,30 @@ describe('cli', () => {
     });
   });
 
+  it('shadow warns when the report and the selection list have different test counts', () => {
+    file('selected.json', JSON.stringify({ mode: 'selected', grep: '@auth', head_sha: 'abc', total: 11 }));
+    const result = run(['shadow', '--result', 'selected.json', '--report', 'full.json']);
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).listed_tests).toBe(11);
+    expect(result.stderr).toContain('incomplete report: the selection listed 11 tests, the report has 12');
+  });
+
+  it('shadow-report summarises rows from a JSON Lines file', () => {
+    const row = { mode: 'selected', total_tests: 12, listed_tests: 12, unrun_tests: 0, report_errors: [], missed_failures: [], unselected_test_time_s: 2 };
+    file('rows.jsonl', `${JSON.stringify({ ...row, pr_id: '1' })}\n${JSON.stringify({ ...row, pr_id: '2', missed_failures: ['x'] })}\n`);
+    const result = run(['shadow-report', '--rows', 'rows.jsonl']);
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({ rows: 2, selected_rows: 2, rows_with_misses: 1, miss_rate: 0.5, unselected_test_time_s: 4 });
+    expect(result.stderr).toContain('1 of 2 selected rows missed a failure (50.0%), 0 incomplete rows left out');
+  });
+
+  it('shadow-report names the line it cannot parse', () => {
+    file('bad.jsonl', '{}\nnot json\n');
+    const result = run(['shadow-report', '--rows', 'bad.jsonl']);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/bad\.jsonl:2: /);
+  });
+
   it('shadow exits 1 when no spec in the full run loaded', () => {
     file('selected.json', JSON.stringify({ mode: 'selected', grep: '@auth', head_sha: 'abc' }));
     file('broken.json', JSON.stringify({ suites: [], errors: [{ message: 'SyntaxError: x' }] }));

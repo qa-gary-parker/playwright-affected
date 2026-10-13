@@ -34,6 +34,7 @@ PLAYWRIGHT_JSON_OUTPUT_NAME=list.json npx playwright test --list --reporter=json
 npx playwright-affected select --config e2e-map.yml --base origin/main --list list.json --out result.json
 npx playwright-affected lint   --config e2e-map.yml --list list.json
 npx playwright-affected shadow --result result.json --report full-run.json --pr 123
+npx playwright-affected shadow-report --rows rows.jsonl
 npx playwright-affected replay --config e2e-map.yml --repo owner/name --base main --limit 200 --list list.json
 ```
 
@@ -42,6 +43,7 @@ npx playwright-affected replay --config e2e-map.yml --repo owner/name --base mai
 | `select` | `result.json` (below) | 0 for any selection, including a tool error. 2 for bad arguments. 1 if `--out` cannot be written. |
 | `lint` | `unreachable`: tests no mapping or always-run tag can select. `dead_entries`: tags, `tests` prefixes and projects that match no test. | 1 if either is non-empty |
 | `shadow` | One row: selected and total tests, `unrun_tests`, `report_errors`, deterministic failures, missed failures, flaky tests excluded, `unselected_test_time_s` | 0. 1 if the report has no tests. |
+| `shadow-report` | Rows, incomplete rows left out, selected rows, rows with misses, `miss_rate`, `unselected_test_time_s`, and the missed tests per PR | 0. 1 if a line is not JSON. |
 | `replay` | Full-run rate by reason, mapping coverage, mean share of tests run, top unmapped dirs, top triggers, per-PR rows | 0 |
 
 - `select` needs the base ref's history: use `fetch-depth: 0` or fetch the base branch.
@@ -99,9 +101,10 @@ npx playwright test ${GREP:+--grep "$GREP"}
 
 Before you make selection blocking, keep running the full suite on PRs. Add Playwright's `json` reporter, and record `shadow` for each PR. The full run and the selection then use the same commit, so a miss belongs to that PR.
 
-- Exclude rows with `unrun_tests` > 0 or any `report_errors`. Tests in an interrupted run, a run stopped by `maxFailures`, or a `--list` report never ran, so they cannot show a miss. A global setup or teardown error also lands in `report_errors`.
+- Exclude rows with `unrun_tests` > 0, any `report_errors`, or a `listed_tests` that differs from `total_tests` (the report and the selection's list did not cover the same tests). Tests in an interrupted run, a run stopped by `maxFailures`, or a `--list` report never ran, so they cannot show a miss. A global setup or teardown error also lands in `report_errors`.
 - Merge shard reports with `npx playwright merge-reports --reporter json` before running `shadow`.
 - `unselected_test_time_s` is the summed duration of unselected tests, including retries. It is not wall-clock time.
+- Append each row to a JSON Lines file with `jq -c . row.json >> rows.jsonl`. `shadow-report` leaves out the incomplete rows and gives the share of selected rows that missed a failure.
 
 ## Caveats
 

@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 import { writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
-import { runLint, runReplay, runSelect, runShadow } from './commands.js';
+import { runLint, runReplay, runSelect, runShadow, runShadowReport } from './commands.js';
 
 const USAGE = `Usage:
   playwright-affected select --config <map.yml> --base <ref> [--head <ref>] [--list <list.json>] [--out <result.json>]
   playwright-affected lint   --config <map.yml> --list <list.json>
   playwright-affected shadow --result <result.json> --report <report.json> [--pr <id>]
+  playwright-affected shadow-report --rows <rows.jsonl>
   playwright-affected replay --config <map.yml> --repo <owner/name> --base <branch> [--limit <n>] [--list <list.json>] [--out <file>]
 
 <list.json>:   PLAYWRIGHT_JSON_OUTPUT_NAME=list.json npx playwright test --list --reporter=json
@@ -23,6 +24,7 @@ const OPTIONS = {
   pr: { type: 'string' },
   repo: { type: 'string' },
   limit: { type: 'string' },
+  rows: { type: 'string' },
 } as const;
 
 function required(values: Record<string, string | undefined>, ...names: string[]): string[] {
@@ -72,6 +74,19 @@ function main(argv: string[]): number {
       log(`${row.missed_failures.length} missed of ${row.full_suite_failures.length} deterministic failure(s)`);
       if (row.unrun_tests > 0) log(`incomplete report: ${row.unrun_tests} test(s) did not run`);
       if (row.report_errors.length > 0) log(`incomplete report: ${row.report_errors.join('; ')}`);
+      if (row.listed_tests !== null && row.listed_tests !== row.total_tests) {
+        log(`incomplete report: the selection listed ${row.listed_tests} tests, the report has ${row.total_tests}`);
+      }
+      return 0;
+    }
+    case 'shadow-report': {
+      const [rows] = required(values, 'rows');
+      const report = runShadowReport({ rows });
+      emit(report);
+      log(
+        `${report.rows_with_misses} of ${report.selected_rows} selected rows missed a failure (${pct(report.miss_rate)}), ` +
+          `${report.incomplete_rows} incomplete rows left out`,
+      );
       return 0;
     }
     case 'replay': {
