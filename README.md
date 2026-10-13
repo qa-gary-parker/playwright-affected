@@ -1,3 +1,5 @@
+![playwright-affected: run the Playwright tests your PR affects, or the full suite when it cannot tell](.github/banner.png)
+
 # playwright-affected
 
 Change-based test selection for Playwright. Maps a PR's git diff to tags and test paths, emits one `--grep`, and falls back to the full suite whenever it cannot decide.
