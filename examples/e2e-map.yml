@@ -29,6 +29,9 @@ mappings:
   - paths: ["src/editor/**"]
     tags: ["@editor"]
     tests: ["editor/"]
+  # Every test in the Playwright project named "api".
+  - paths: ["services/api/**"]
+    projects: ["api"]
 
 # full: an unmapped source change runs the full suite. warn_only: list it and keep the selection.
 unmapped_behavior: full

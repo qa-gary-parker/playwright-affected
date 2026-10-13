@@ -88,6 +88,13 @@ describe('select', () => {
     expect(select(config, ['e2e/tests/a/b.spec.tsx', 'e2e/tests/c.spec.mjs']).tests).toEqual(['a/b.spec.tsx', 'c.spec.mjs']);
   });
 
+  it('selects whole Playwright projects', () => {
+    const byProject = parseConfig('version: 1\nalways_run_tags: ["@smoke"]\nmappings:\n  - paths: ["src/api/**"]\n    projects: ["api"]\n');
+    const result = select(byProject, ['src/api/a.ts']);
+    expect(result).toMatchObject({ mode: 'selected', projects: ['api'], tags: ['@smoke'] });
+    expect(result.grep).toBe('^(?:api)\\s|(?:^|\\s)(?:@smoke)(?=\\s|$)');
+  });
+
   it('drops a deleted test file instead of selecting it', () => {
     const result = select(config, ['e2e/tests/auth/old.test.ts', 'src/editor/a.ts'], ['e2e/tests/auth/old.test.ts']);
     expect(result).toMatchObject({ mode: 'selected', tests: [], tags: ['@editor', '@smoke'], ignored_paths: ['e2e/tests/auth/old.test.ts'] });
@@ -191,6 +198,21 @@ describe('applyList', () => {
     });
   });
 
+  it('falls back to the full suite when a project has no listed tests', () => {
+    expect(applyList(select(map('projects: ["p", "firefox"]'), ['src/a.ts']), tests)).toMatchObject({
+      mode: 'full',
+      full_reason: 'dead_entry',
+      dead_entries: ['firefox'],
+    });
+  });
+
+  it('lists the projects that have selected tests', () => {
+    const two = [...tests, { ...tests[0], id: 'q › auth', project: 'q', grepTitle: 'q auth/login.spec.ts logs in @identity' }];
+    expect(applyList(select(map('projects: ["p"]'), ['src/a.ts']), two)).toMatchObject({ selected: 3, selected_projects: ['p'] });
+    expect(applyList(select(map('tags: ["@identity"]'), ['src/a.ts']), two)).toMatchObject({ selected: 2, selected_projects: ['p', 'q'] });
+    expect(applyList(select(map('tags: ["@identity"]'), ['other/a.ts']), two)).toMatchObject({ mode: 'full', selected_projects: ['p', 'q'] });
+  });
+
   it('matches tags whole and ignoring case, as Playwright --grep does', () => {
     expect(applyList(select(map('tags: ["@Identity"]'), ['src/a.ts']), tests)).toMatchObject({
       mode: 'selected',
@@ -231,7 +253,7 @@ describe('parseConfig', () => {
   it.each([
     ['version: 2\nmappings: []', /version/],
     ['version: 1\nmappings:\n  - paths: ["a/**"]\n    tags: ["editor"]', /must start with "@"/],
-    ['version: 1\nmappings:\n  - paths: ["a/**"]', /needs tags or tests/],
+    ['version: 1\nmappings:\n  - paths: ["a/**"]', /needs tags, tests or projects/],
     ['version: 1\nmappings:\n  - tags: ["@a"]', /paths/],
     ['version: 1\nunmapped_behavior: skip\nmappings: []', /unmapped_behavior/],
     ['version: 1\nalways_run_tags: "@smoke"\nmappings: []', /always_run_tags/],
@@ -248,6 +270,7 @@ describe('parseConfig', () => {
     ['version: 1\nmappings:\n  - paths: ["src/**"]\n    tests: [""]', /mappings\[0\]\.tests must be a list of non-empty strings/],
     ['version: 1\nalways_run_tags: ["@"]\nmappings: []', /always_run_tags: tag "@" must start with "@" and have a name/],
     ['version: 1\nmappings: [null]', /mappings\[0\] must be a mapping/],
+    ['version: 1\nmappings:\n  - paths: ["src/**"]\n    projects: [""]', /mappings\[0\]\.projects must be a list of non-empty strings/],
     ['version: 1\nmappings: ["src/**"]', /mappings\[0\] must be a mapping/],
   ])('rejects an invalid config: %s', (text, message) => {
     expect(() => parseConfig(text)).toThrow(message);

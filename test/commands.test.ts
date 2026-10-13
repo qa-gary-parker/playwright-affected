@@ -123,13 +123,14 @@ describe('runSelect', () => {
       dead_entries: [],
       selected: 6,
       total: 12,
+      selected_projects: ['api', 'chromium'],
     });
   });
 
   it('lists renamed, deleted and non-ASCII paths as they are in the repo', () => {
     const result = runSelect({ config: 'e2e-map.yml', base: 'main', head: 'paths', cwd: repo });
     expect(result.changed_files).toEqual(['src/billing/b.ts', 'src/billing/café plan.ts', 'src/billing/gone.ts']);
-    expect(result).toMatchObject({ tags: ['@billing', '@smoke'], dead_entries: null, selected: null, total: null });
+    expect(result).toMatchObject({ tags: ['@billing', '@smoke'], dead_entries: null, selected: null, total: null, selected_projects: null });
   });
 
   it('diffs the checked-out commit when no head is given', () => {

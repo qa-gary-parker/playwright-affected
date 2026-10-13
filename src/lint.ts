@@ -6,6 +6,7 @@ import { buildGrep, deadEntries } from './select.js';
 export function lint(config: Config, tests: ListedTest[]): { unreachable: ListedTest[]; dead_entries: string[] } {
   const tags = [...config.alwaysRunTags, ...config.mappings.flatMap((m) => m.tags)];
   const paths = config.mappings.flatMap((m) => m.tests);
-  const reachable = grepMatcher(buildGrep(tags, paths) ?? '(?!)');
-  return { unreachable: tests.filter((t) => !reachable(t)), dead_entries: deadEntries(tags, paths, tests) };
+  const projects = config.mappings.flatMap((m) => m.projects);
+  const reachable = grepMatcher(buildGrep(tags, paths, projects) ?? '(?!)');
+  return { unreachable: tests.filter((t) => !reachable(t)), dead_entries: deadEntries(tags, paths, projects, tests) };
 }

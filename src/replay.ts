@@ -5,7 +5,7 @@ import { applyList, type FullReason, type Selection, select } from './select.js'
 
 export type PrFiles = { number: number; files: string[]; deleted?: string[] };
 
-export type ReplayRow = Pick<Selection, 'mode' | 'full_reason' | 'tags' | 'tests'> & {
+export type ReplayRow = Pick<Selection, 'mode' | 'full_reason' | 'tags' | 'tests' | 'projects'> & {
   pr: number;
   selected_share: number | null;
 };
@@ -56,7 +56,7 @@ export function replay(config: Config, prs: PrFiles[], tests: ListedTest[] | nul
     for (const file of s.trigger_paths) bump(triggers, file, () => new Set<number>(), (v) => v.add(pr.number));
 
     const share = listed && listed.selected / listed.total;
-    return { pr: pr.number, mode: s.mode, full_reason: s.full_reason, tags: s.tags, tests: s.tests, selected_share: share };
+    return { pr: pr.number, mode: s.mode, full_reason: s.full_reason, tags: s.tags, tests: s.tests, projects: s.projects, selected_share: share };
   });
 
   const shares = rows.map((r) => r.selected_share).filter((v): v is number => v !== null);

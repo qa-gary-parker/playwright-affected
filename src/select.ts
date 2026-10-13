@@ -12,10 +12,11 @@ export type Selection = {
   unmapped_paths: string[];
   tags: string[];
   tests: string[];
+  projects: string[];
   grep: string | null;
 };
 
-export type ListedSelection = Selection & { dead_entries: string[]; selected: number; total: number };
+export type ListedSelection = Selection & { dead_entries: string[]; selected: number; total: number; selected_projects: string[] };
 
 const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/;
 
@@ -26,11 +27,12 @@ const matchesAny = (file: string, globs: string[]) => globs.some((glob) => match
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-// Playwright greps "<project> <file relative to testDir> <describes> <title> <tags>",
-// so a tag must be a whole token and a test path must start one.
-export function buildGrep(tags: string[], tests: string[]): string | null {
+// Playwright greps "<project> <file relative to testDir> <describes> <title> <tags>", so a project
+// must be the first token, a tag must be a whole token and a test path must start one.
+export function buildGrep(tags: string[], tests: string[], projects: string[] = []): string | null {
   const group = (items: string[]) => `(?:${items.map(escapeRegExp).join('|')})`;
   const parts = [];
+  if (projects.length > 0) parts.push(`^${group(projects)}\\s`);
   if (tags.length > 0) parts.push(`(?:^|\\s)${group(tags)}(?=\\s|$)`);
   if (tests.length > 0) parts.push(`(?:^|\\s)${group(tests)}`);
   return parts.length > 0 ? parts.join('|') : null;
@@ -42,6 +44,7 @@ export function select(config: Config, changedFiles: string[], deletedFiles: str
   const unmapped: string[] = [];
   const tags = new Set(config.alwaysRunTags);
   const tests = new Set<string>();
+  const projects = new Set<string>();
   const testDirPrefix = config.testDir === null || config.testDir === '' ? config.testDir : `${config.testDir}/`;
 
   for (const file of changedFiles) {
@@ -64,11 +67,12 @@ export function select(config: Config, changedFiles: string[], deletedFiles: str
     for (const m of matched) {
       m.tags.forEach((t) => tags.add(t));
       m.tests.forEach((t) => tests.add(t));
+      m.projects.forEach((p) => projects.add(p));
     }
   }
 
   const base = { trigger_paths: triggers, ignored_paths: ignored, unmapped_paths: unmapped };
-  const full = (reason: FullReason): Selection => ({ mode: 'full', full_reason: reason, ...base, tags: [], tests: [], grep: null });
+  const full = (reason: FullReason): Selection => ({ mode: 'full', full_reason: reason, ...base, tags: [], tests: [], projects: [], grep: null });
 
   // An empty diff usually means a misconfigured base, not a PR that changes nothing.
   if (changedFiles.length === 0) return full('no_changes');
@@ -77,17 +81,19 @@ export function select(config: Config, changedFiles: string[], deletedFiles: str
 
   const sortedTags = [...tags].sort();
   const sortedTests = [...tests].sort();
-  const grep = buildGrep(sortedTags, sortedTests);
+  const sortedProjects = [...projects].sort();
+  const grep = buildGrep(sortedTags, sortedTests, sortedProjects);
   if (grep === null) return full('empty_selection');
 
-  return { mode: 'selected', full_reason: null, ...base, tags: sortedTags, tests: sortedTests, grep };
+  return { mode: 'selected', full_reason: null, ...base, tags: sortedTags, tests: sortedTests, projects: sortedProjects, grep };
 }
 
 // Checked against each test's tags and file, not the grep, so a stale entry cannot pass
 // by matching a word in some title. Case-insensitive, like --grep.
-export function deadEntries(tags: string[], tests: string[], listed: ListedTest[]): string[] {
+export function deadEntries(tags: string[], tests: string[], projects: string[], listed: ListedTest[]): string[] {
   const lower = (text: string) => text.toLowerCase();
   const dead = [
+    ...projects.filter((project) => !listed.some((t) => lower(t.project) === lower(project))),
     ...tags.filter((tag) => !listed.some((t) => t.tags.some((x) => lower(x) === lower(tag)))),
     ...tests.filter((path) => !listed.some((t) => lower(t.file).startsWith(lower(path)))),
   ];
@@ -98,10 +104,13 @@ export function deadEntries(tags: string[], tests: string[], listed: ListedTest[
 // a deleted spec), and dropping it silently would skip the tests it was meant to select.
 export function applyList(selection: Selection, listed: ListedTest[]): ListedSelection {
   const total = listed.length;
-  if (selection.mode === 'full') return { ...selection, dead_entries: [], selected: total, total };
-  const dead = deadEntries(selection.tags, selection.tests, listed);
+  const projectsOf = (tests: ListedTest[]) => [...new Set(tests.map((t) => t.project))].sort();
+  const all = { selected: total, total, selected_projects: projectsOf(listed) };
+  if (selection.mode === 'full') return { ...selection, dead_entries: [], ...all };
+  const dead = deadEntries(selection.tags, selection.tests, selection.projects, listed);
   if (dead.length > 0) {
-    return { ...selection, mode: 'full', full_reason: 'dead_entry', tags: [], tests: [], grep: null, dead_entries: dead, selected: total, total };
+    return { ...selection, mode: 'full', full_reason: 'dead_entry', tags: [], tests: [], projects: [], grep: null, dead_entries: dead, ...all };
   }
-  return { ...selection, dead_entries: [], selected: listed.filter(grepMatcher(selection.grep)).length, total };
+  const chosen = listed.filter(grepMatcher(selection.grep));
+  return { ...selection, dead_entries: [], selected: chosen.length, total, selected_projects: projectsOf(chosen) };
 }

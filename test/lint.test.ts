@@ -43,7 +43,19 @@ mappings:
     expect(lint(parseConfig('version: 1\nmappings: []\n'), all).unreachable).toHaveLength(12);
   });
 
-  it('lists map entries that match no test', () => {
+  it('counts a project mapping as reaching every test in that project', () => {
+    const config = parseConfig('version: 1\nmappings:\n  - paths: ["src/**"]\n    projects: ["api", "firefox"]\n    tags: ["@billing"]\n');
+    const result = lint(config, all);
+    expect(result.unreachable.map((t) => t.id)).toEqual([
+      'chromium › auth/login.test.ts › logs in',
+      'chromium › auth/login.test.ts › resets password',
+      'chromium › editor/editor.test.ts › editor @editor › opens a document @smoke',
+      'chromium › editor/editor.test.ts › editor @editor › saves a draft',
+    ]);
+    expect(result.dead_entries).toEqual(['firefox']);
+  });
+
+    it('lists map entries that match no test', () => {
     const config = parseConfig(`
 version: 1
 always_run_tags: ["@smoke", "@nightly"]

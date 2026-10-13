@@ -55,6 +55,8 @@ describe('grepMatcher matches what Playwright --grep selects', () => {
     ['@nomatch', 0],
     ['@SMOKE', 4],
     ['^chromium\\s', 6],
+    [buildGrep([], [], ['api']), 6],
+    [buildGrep(['@billing'], [], ['api']), 8],
     [buildGrep(['@auth'], []), 2],
     [buildGrep(['@edit'], []), 0],
   ])('%s', (grep, expected) => {

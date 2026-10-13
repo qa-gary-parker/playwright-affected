@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
 
-export type Mapping = { paths: string[]; tags: string[]; tests: string[] };
+export type Mapping = { paths: string[]; tags: string[]; tests: string[]; projects: string[] };
 
 export type Config = {
   // Repo-relative; '' is the repo root.
@@ -67,14 +67,15 @@ export function parseConfig(text: string): Config {
   const mappings = (raw.mappings ?? []).map((m: unknown, i: number) => {
     const field = `mappings[${i}]`;
     if (m === null || typeof m !== 'object' || Array.isArray(m)) throw new Error(`${field} must be a mapping`);
-    rejectUnknownKeys(m as Record<string, unknown>, ['paths', 'tags', 'tests'], `${field}: `);
-    const { paths: rawPaths, tags: rawTags, tests: rawTests } = m as Record<string, unknown>;
+    rejectUnknownKeys(m as Record<string, unknown>, ['paths', 'tags', 'tests', 'projects'], `${field}: `);
+    const { paths: rawPaths, tags: rawTags, tests: rawTests, projects: rawProjects } = m as Record<string, unknown>;
     const paths = globList(rawPaths, `${field}.paths`);
     if (paths.length === 0) throw new Error(`${field}.paths must not be empty`);
     const tags = tagList(rawTags, `${field}.tags`);
     const tests = stringList(rawTests, `${field}.tests`);
-    if (tags.length === 0 && tests.length === 0) throw new Error(`${field} needs tags or tests`);
-    return { paths, tags, tests };
+    const projects = stringList(rawProjects, `${field}.projects`);
+    if (tags.length === 0 && tests.length === 0 && projects.length === 0) throw new Error(`${field} needs tags, tests or projects`);
+    return { paths, tags, tests, projects };
   });
 
   return {

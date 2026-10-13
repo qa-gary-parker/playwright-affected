@@ -16,12 +16,13 @@ See [`examples/e2e-map.yml`](examples/e2e-map.yml). Each changed file is checked
 1. `full_run_triggers`: run the full suite.
 2. A `*.test.*` or `*.spec.*` file under `test_dir`: select that file. If the PR deletes it, or renames it away, skip it.
 3. `ignore_paths`: skip the file.
-4. `mappings`: add the `tags` and `tests` of every mapping that matches.
+4. `mappings`: add the `tags`, `tests` and `projects` of every mapping that matches.
 5. Anything else is unmapped. `unmapped_behavior: full` runs the full suite.
 
 - `test_dir` is the directory Playwright reports test files relative to, written relative to the repo root. That is the top-level `testDir` in `playwright.config`, or the config file's directory if `testDir` is only set per project. `.` is the repo root.
 - A tag matches tests that have exactly that tag, ignoring case. `@auth` does not match `@authoring`.
 - `tests` entries are plain path prefixes relative to `test_dir`, such as `editor/`. They are not globs.
+- `projects` entries are Playwright project names. Each selects every test in that project.
 - Globs use Node's `path.matchesGlob`, except that `*` and `**` also match names that start with a dot: `docs/**` matches `docs/.vitepress/config.ts`. Matching is case-sensitive.
 - Globs are relative to the repo root. A glob that starts with `./` or `/` is rejected, because it would never match.
 
@@ -39,7 +40,7 @@ npx playwright-affected replay --config e2e-map.yml --repo owner/name --base mai
 | Command | Output | Exit code |
 |---|---|---|
 | `select` | `result.json` (below) | 0 for any selection, including a tool error. 2 for bad arguments. 1 if `--out` cannot be written. |
-| `lint` | `unreachable`: tests no mapping or always-run tag can select. `dead_entries`: tags and `tests` prefixes that match no test. | 1 if either is non-empty |
+| `lint` | `unreachable`: tests no mapping or always-run tag can select. `dead_entries`: tags, `tests` prefixes and projects that match no test. | 1 if either is non-empty |
 | `shadow` | One row: selected and total tests, `unrun_tests`, `report_errors`, deterministic failures, missed failures, flaky tests excluded, `unselected_test_time_s` | 0. 1 if the report has no tests. |
 | `replay` | Full-run rate by reason, mapping coverage, mean share of tests run, top unmapped dirs, top triggers, per-PR rows | 0 |
 
@@ -63,16 +64,19 @@ npx playwright-affected replay --config e2e-map.yml --repo owner/name --base mai
   "unmapped_paths": [],
   "tags": ["@editor", "@smoke"],
   "tests": ["editor/"],
+  "projects": [],
   "grep": "(?:^|\\s)(?:@editor|@smoke)(?=\\s|$)|(?:^|\\s)(?:editor/)",
   "dead_entries": [],
   "selected": 38,
-  "total": 240
+  "total": 240,
+  "selected_projects": ["chromium", "firefox"]
 }
 ```
 
 - `full_reason` is one of `global_trigger`, `unmapped_paths`, `no_changes`, `empty_selection`, `dead_entry` or `tool_error`.
 - If `mode` is `full`, `grep` is `null`.
-- Without `--list`, `dead_entries`, `selected` and `total` are `null`.
+- `selected_projects` lists the projects that have at least one selected test. On a full run it lists every project.
+- Without `--list`, `dead_entries`, `selected`, `total` and `selected_projects` are `null`.
 - A `tool_error` result also has an `error` message.
 - A deleted spec, including the old path of a renamed one, is listed in `ignored_paths`.
 
@@ -85,6 +89,8 @@ GREP=$(jq -r '.grep // empty' result.json)
 npx playwright test ${GREP:+--grep "$GREP"}
 ```
 
+- If CI runs one job per project, skip a job whose project has no selected tests. This skips only when `selected_projects` is set and leaves the project out:
+  `[ "$(jq --arg p "$PROJECT" '.selected_projects != null and (.selected_projects | index($p)) == null' result.json)" = true ] && exit 0`
 - Run selection on PRs only. Keep the full suite on the merge queue or default branch, and on a schedule.
 - `rm -f` stops a reused workspace from picking up the previous build's `result.json` if `select` fails to start.
 - The map is read from the PR branch, so a PR can change its own selection. The full suite on the merge queue is the safety net.

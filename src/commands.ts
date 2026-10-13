@@ -16,6 +16,7 @@ export type SelectResult = Selection & {
   dead_entries: string[] | null;
   selected: number | null;
   total: number | null;
+  selected_projects: string[] | null;
   error?: string;
 };
 
@@ -48,7 +49,7 @@ export function runSelect(opts: SelectOptions): SelectResult {
     files = changed.files;
     const selection = select(config, files, changed.deleted);
     const result = { base_ref: opts.base, head_sha: headSha, changed_files: files };
-    if (!opts.list) return { ...result, ...selection, dead_entries: null, selected: null, total: null };
+    if (!opts.list) return { ...result, ...selection, dead_entries: null, selected: null, total: null, selected_projects: null };
     return { ...result, ...applyList(selection, readTests(opts.list, opts.cwd)) };
   } catch (error) {
     return {
@@ -62,10 +63,12 @@ export function runSelect(opts: SelectOptions): SelectResult {
       unmapped_paths: [],
       tags: [],
       tests: [],
+      projects: [],
       grep: null,
       dead_entries: null,
       selected: null,
       total: null,
+      selected_projects: null,
       error: error instanceof Error ? error.message : String(error),
     };
   }
