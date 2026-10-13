@@ -27,7 +27,7 @@ See [`examples/e2e-map.yml`](examples/e2e-map.yml). Each changed file is checked
 ## Commands
 
 ```sh
-npx playwright test --list --reporter=json > list.json
+PLAYWRIGHT_JSON_OUTPUT_NAME=list.json npx playwright test --list --reporter=json
 
 npx playwright-affected select --config e2e-map.yml --base origin/main --list list.json --out result.json
 npx playwright-affected lint   --config e2e-map.yml --list list.json
@@ -39,12 +39,14 @@ npx playwright-affected replay --config e2e-map.yml --repo owner/name --base mai
 |---|---|---|
 | `select` | `result.json` (below) | 0 for any selection, including a tool error. 2 for bad arguments. 1 if `--out` cannot be written. |
 | `lint` | `unreachable`: tests no mapping or always-run tag can select. `dead_entries`: tags and `tests` prefixes that match no test. | 1 if either is non-empty |
-| `shadow` | One row: selected and total tests, `unrun_tests`, deterministic failures, missed failures, flaky tests excluded, `unselected_test_time_s` | 0 |
+| `shadow` | One row: selected and total tests, `unrun_tests`, `report_errors`, deterministic failures, missed failures, flaky tests excluded, `unselected_test_time_s` | 0. 1 if the report has no tests. |
 | `replay` | Full-run rate by reason, mapping coverage, mean share of tests run, top unmapped dirs, top triggers, per-PR rows | 0 |
 
 - `select` needs the base ref's history: use `fetch-depth: 0` or fetch the base branch.
 - Pass `--list` to `select`. Without it, `select` cannot check that each selected entry matches a test, and a grep that matches nothing makes `playwright test` fail with "No tests found".
 - Generate `list.json` with the same `--project` and filters as the CI run, so the counts match.
+- Write reports with `PLAYWRIGHT_JSON_OUTPUT_NAME`, not `> file`. Anything the config prints to stdout, such as dotenv's log line, corrupts a redirected report.
+- A list with errors (a spec that failed to load) or no tests is rejected: `select` runs the full suite, and `lint` and `replay` exit 1.
 
 ## result.json
 
@@ -90,7 +92,7 @@ npx playwright test ${GREP:+--grep "$GREP"}
 
 Before you make selection blocking, keep running the full suite on PRs. Add Playwright's `json` reporter, and record `shadow` for each PR. The full run and the selection then use the same commit, so a miss belongs to that PR.
 
-- Exclude rows with `unrun_tests` > 0. Tests in an interrupted run, a run stopped by `maxFailures`, or a `--list` report never ran, so they cannot show a miss.
+- Exclude rows with `unrun_tests` > 0 or any `report_errors`. Tests in an interrupted run, a run stopped by `maxFailures`, or a `--list` report never ran, so they cannot show a miss. A global setup or teardown error also lands in `report_errors`.
 - Merge shard reports with `npx playwright merge-reports --reporter json` before running `shadow`.
 - `unselected_test_time_s` is the summed duration of unselected tests, including retries. It is not wall-clock time.
 

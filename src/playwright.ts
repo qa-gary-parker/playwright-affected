@@ -1,3 +1,5 @@
+import { stripVTControlCharacters } from 'node:util';
+
 export type TestStatus = 'expected' | 'unexpected' | 'flaky' | 'skipped';
 
 export type ListedTest = {
@@ -49,6 +51,13 @@ export function flattenReport(report: unknown): ListedTest[] {
   };
   for (const fileSuite of suites) walk(fileSuite, []);
   return tests;
+}
+
+// Run-level errors: a spec that failed to load (its tests are missing), a global setup or
+// teardown failure, or a run stopped early. First line of each, without colour codes.
+export function reportErrors(report: unknown): string[] {
+  const errors = (report as { errors?: { message?: string }[] }).errors ?? [];
+  return errors.map((e) => stripVTControlCharacters(e.message ?? '').split('\n')[0]);
 }
 
 // Same flags as Playwright's CLI --grep: case-insensitive.

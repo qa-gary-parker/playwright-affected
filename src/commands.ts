@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { loadConfig } from './config.js';
 import { changedFiles, revParse } from './git.js';
 import { lint } from './lint.js';
-import { flattenReport, type ListedTest } from './playwright.js';
+import { flattenReport, type ListedTest, reportErrors } from './playwright.js';
 import { type PrFiles, type ReplaySummary, replay } from './replay.js';
 import { applyList, type Selection, select } from './select.js';
 import { type ShadowRow, shadow } from './shadow.js';
@@ -19,8 +19,20 @@ export type SelectResult = Selection & {
   error?: string;
 };
 
-const readTests = (file: string, cwd?: string): ListedTest[] =>
-  flattenReport(JSON.parse(readFileSync(resolve(cwd ?? '.', file), 'utf8')));
+function readReport(file: string, cwd?: string): { tests: ListedTest[]; errors: string[] } {
+  const report = JSON.parse(readFileSync(resolve(cwd ?? '.', file), 'utf8'));
+  const tests = flattenReport(report);
+  const errors = reportErrors(report);
+  if (tests.length === 0) throw new Error(`no tests in ${file}${errors.length > 0 ? `: ${errors[0]}` : ''}`);
+  return { tests, errors };
+}
+
+// A list with errors is missing the tests of any spec that failed to load.
+function readTests(file: string, cwd?: string): ListedTest[] {
+  const { tests, errors } = readReport(file, cwd);
+  if (errors.length > 0) throw new Error(`${file} has errors: ${errors[0]}`);
+  return tests;
+}
 
 export type SelectOptions = { config: string; base: string; head?: string; list?: string; cwd?: string };
 
@@ -64,7 +76,8 @@ export function runLint(opts: { config: string; list: string }) {
 
 export function runShadow(opts: { result: string; report: string; pr?: string }): ShadowRow {
   const selection = JSON.parse(readFileSync(opts.result, 'utf8')) as SelectResult;
-  return shadow(selection, readTests(opts.report), opts.pr ?? null);
+  const { tests, errors } = readReport(opts.report);
+  return shadow(selection, tests, opts.pr ?? null, errors);
 }
 
 const gh = (args: string[]) => execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });

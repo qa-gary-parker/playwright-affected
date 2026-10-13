@@ -9,7 +9,7 @@ const USAGE = `Usage:
   playwright-affected shadow --result <result.json> --report <report.json> [--pr <id>]
   playwright-affected replay --config <map.yml> --repo <owner/name> --base <branch> [--limit <n>] [--list <list.json>] [--out <file>]
 
-<list.json>:   npx playwright test --list --reporter=json > list.json
+<list.json>:   PLAYWRIGHT_JSON_OUTPUT_NAME=list.json npx playwright test --list --reporter=json
 <report.json>: a full run with --reporter=json`;
 
 const OPTIONS = {
@@ -71,6 +71,7 @@ function main(argv: string[]): number {
       emit(row);
       log(`${row.missed_failures.length} missed of ${row.full_suite_failures.length} deterministic failure(s)`);
       if (row.unrun_tests > 0) log(`incomplete report: ${row.unrun_tests} test(s) did not run`);
+      if (row.report_errors.length > 0) log(`incomplete report: ${row.report_errors.join('; ')}`);
       return 0;
     }
     case 'replay': {

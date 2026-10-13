@@ -63,6 +63,8 @@ beforeAll(() => {
       'e2e-map.yml': CONFIG,
       'broken.yml': 'version: 9',
       'list.json': JSON.stringify(runFixture(['--list'])),
+      'empty-list.json': JSON.stringify({ suites: [] }),
+      'errors-list.json': JSON.stringify({ ...(runFixture(['--list']) as object), errors: [{ message: 'SyntaxError: x' }] }),
     },
     'base',
   );
@@ -139,6 +141,16 @@ describe('runSelect', () => {
     expect(result.mode).toBe('full');
     expect(result.full_reason).toBe('tool_error');
     expect(result.error).toMatch(/origin\/missing/);
+  });
+
+  it('fails open when the list has no tests', () => {
+    const result = runSelect({ config: 'e2e-map.yml', base: 'main', head: 'feature', list: 'empty-list.json', cwd: repo });
+    expect(result).toMatchObject({ mode: 'full', full_reason: 'tool_error', error: 'no tests in empty-list.json' });
+  });
+
+  it('fails open when the list has errors, because it is missing the tests of specs that failed to load', () => {
+    const result = runSelect({ config: 'e2e-map.yml', base: 'main', head: 'feature', list: 'errors-list.json', cwd: repo });
+    expect(result).toMatchObject({ mode: 'full', full_reason: 'tool_error', error: 'errors-list.json has errors: SyntaxError: x' });
   });
 
   it('fails open when the config is invalid', () => {

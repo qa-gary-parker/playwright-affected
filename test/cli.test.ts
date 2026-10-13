@@ -78,6 +78,24 @@ describe('cli', () => {
     });
   });
 
+  it('shadow exits 1 when no spec in the full run loaded', () => {
+    file('selected.json', JSON.stringify({ mode: 'selected', grep: '@auth', head_sha: 'abc' }));
+    file('broken.json', JSON.stringify({ suites: [], errors: [{ message: 'SyntaxError: x' }] }));
+    const result = run(['shadow', '--result', 'selected.json', '--report', 'broken.json']);
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe('');
+    expect(result.stderr).toContain('no tests in broken.json: SyntaxError: x');
+  });
+
+  it('shadow marks a row incomplete when the full run has errors', () => {
+    file('selected.json', JSON.stringify({ mode: 'selected', grep: '@auth', head_sha: 'abc' }));
+    file('errors.json', JSON.stringify({ ...JSON.parse(readFileSync(join(dir, 'full.json'), 'utf8')), errors: [{ message: 'teardown failed' }] }));
+    const result = run(['shadow', '--result', 'selected.json', '--report', 'errors.json']);
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).report_errors).toEqual(['teardown failed']);
+    expect(result.stderr).toContain('incomplete report: teardown failed');
+  });
+
   it('replay reads merged PRs and their files through gh', () => {
     const bin = join(dir, 'bin');
     mkdirSync(bin);

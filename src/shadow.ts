@@ -8,6 +8,7 @@ export type ShadowRow = {
   selected_tests: number;
   total_tests: number;
   unrun_tests: number;
+  report_errors: string[];
   full_suite_failures: string[];
   missed_failures: string[];
   flaky_excluded: string[];
@@ -16,11 +17,12 @@ export type ShadowRow = {
 
 // Compares a selection with a full run of the same commit. Flaky tests (passed on
 // retry) are excluded; only deterministic failures count as misses. A row with
-// unrun_tests > 0 is incomplete: tests that never ran cannot show a miss.
+// unrun_tests > 0 or report_errors is incomplete: tests that never ran cannot show a miss.
 export function shadow(
   selection: Pick<Selection, 'mode' | 'grep'> & { head_sha?: string | null },
   fullRun: ListedTest[],
   prId: string | null,
+  reportErrors: string[] = [],
 ): ShadowRow {
   const isSelected = selection.mode === 'full' ? () => true : grepMatcher(selection.grep);
   const selected = fullRun.filter(isSelected);
@@ -35,6 +37,7 @@ export function shadow(
     selected_tests: selected.length,
     total_tests: fullRun.length,
     unrun_tests: fullRun.filter((t) => !t.ran).length,
+    report_errors: reportErrors,
     full_suite_failures: ids(failures),
     missed_failures: ids(failures.filter((t) => !isSelected(t))),
     flaky_excluded: ids(fullRun.filter((t) => t.status === 'flaky')),
