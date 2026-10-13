@@ -100,7 +100,8 @@ beforeAll(() => {
   git('commit', '-qm', 'rename spec');
   git('checkout', '-q', 'bump-sub');
   execFileSync('git', ['-C', join(repo, 'vendor/sub'), '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'sub 2']);
-  git('add', 'vendor/sub');
+  // Newer git skips `git add` for a submodule with ignore = all, so stage the commit directly.
+  git('update-index', '--cacheinfo', `160000,${execFileSync('git', ['-C', join(repo, 'vendor/sub'), 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()},vendor/sub`);
   git('commit', '-qm', 'bump submodule');
   git('checkout', '-q', 'main');
   git('submodule', 'update', '-q');
