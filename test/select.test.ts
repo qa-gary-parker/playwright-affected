@@ -117,6 +117,21 @@ describe('select', () => {
     expect(result.tests).toEqual(['auth/login.test.ts']);
   });
 
+  it('matches globs inside dot folders', () => {
+    expect(select(config, ['e2e/fixtures/.auth/user.json']).full_reason).toBe('global_trigger');
+    expect(select(config, ['docs/.vitepress/config.ts', '.github/notes.md']).ignored_paths).toEqual([
+      'docs/.vitepress/config.ts',
+      '.github/notes.md',
+    ]);
+  });
+
+  it('still matches a glob that names a dot folder', () => {
+    const dotConfig = parseConfig('version: 1\nfull_run_triggers: [".github/workflows/**", "**/.env"]\nmappings: []\n');
+    expect(select(dotConfig, ['.github/workflows/ci.yml']).trigger_paths).toEqual(['.github/workflows/ci.yml']);
+    expect(select(dotConfig, ['.env', 'app/.env']).trigger_paths).toEqual(['.env', 'app/.env']);
+    expect(select(dotConfig, ['.github/x.yml']).trigger_paths).toEqual([]);
+  });
+
   it('treats test_dir "." as the repo root', () => {
     const result = select(parseConfig('version: 1\ntest_dir: .\nmappings: []\n'), ['auth/login.test.ts']);
     expect(result.mode).toBe('selected');
@@ -209,6 +224,13 @@ describe('parseConfig', () => {
     ['version: 1\ntest_dir: /e2e\nmappings: []', /test_dir must be relative/],
     ['version: 1\nalways_run_tags: ["smoke"]\nmappings: []', /always_run_tags: tag "smoke" must start with "@"/],
     ['version: 1\nmappings:\n  - paths: []\n    tags: ["@a"]', /mappings\[0\]\.paths must not be empty/],
+    ['version: 1\nfull_run_triggers: ["./package.json"]\nmappings: []', /full_run_triggers: glob "\.\/package\.json" must be relative/],
+    ['version: 1\nignore_paths: ["/docs/**"]\nmappings: []', /ignore_paths: glob "\/docs\/\*\*" must be relative/],
+    ['version: 1\nmappings:\n  - paths: ["./src/**"]\n    tags: ["@a"]', /mappings\[0\]\.paths: glob/],
+    ['version: 1\nmappings:\n  - paths: ["src/**"]\n    tests: [""]', /mappings\[0\]\.tests must be a list of non-empty strings/],
+    ['version: 1\nalways_run_tags: ["@"]\nmappings: []', /always_run_tags: tag "@" must start with "@" and have a name/],
+    ['version: 1\nmappings: [null]', /mappings\[0\] must be a mapping/],
+    ['version: 1\nmappings: ["src/**"]', /mappings\[0\] must be a mapping/],
   ])('rejects an invalid config: %s', (text, message) => {
     expect(() => parseConfig(text)).toThrow(message);
   });

@@ -22,7 +22,8 @@ See [`examples/e2e-map.yml`](examples/e2e-map.yml). Each changed file is checked
 - `test_dir` is the directory Playwright reports test files relative to, written relative to the repo root. That is the top-level `testDir` in `playwright.config`, or the config file's directory if `testDir` is only set per project. `.` is the repo root.
 - A tag matches tests that have exactly that tag, ignoring case. `@auth` does not match `@authoring`.
 - `tests` entries are plain path prefixes relative to `test_dir`, such as `editor/`. They are not globs.
-- Globs use Node's `path.matchesGlob`. `*` and `**` do not match a path segment that starts with a dot, so write `.github/**`, not `**/*.yml`, to match `.github/workflows/ci.yml`.
+- Globs use Node's `path.matchesGlob`, except that `*` and `**` also match names that start with a dot: `docs/**` matches `docs/.vitepress/config.ts`. Matching is case-sensitive.
+- Globs are relative to the repo root. A glob that starts with `./` or `/` is rejected, because it would never match.
 
 ## Commands
 

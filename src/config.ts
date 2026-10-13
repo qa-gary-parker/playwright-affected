@@ -15,8 +15,8 @@ export type Config = {
 
 function stringList(value: unknown, field: string): string[] {
   if (value === undefined || value === null) return [];
-  if (!Array.isArray(value) || !value.every((v) => typeof v === 'string')) {
-    throw new Error(`${field} must be a list of strings`);
+  if (!Array.isArray(value) || !value.every((v) => typeof v === 'string' && v !== '')) {
+    throw new Error(`${field} must be a list of non-empty strings`);
   }
   return value;
 }
@@ -24,9 +24,18 @@ function stringList(value: unknown, field: string): string[] {
 function tagList(value: unknown, field: string): string[] {
   const tags = stringList(value, field);
   for (const tag of tags) {
-    if (!tag.startsWith('@')) throw new Error(`${field}: tag "${tag}" must start with "@"`);
+    if (!tag.startsWith('@') || tag.length === 1) throw new Error(`${field}: tag "${tag}" must start with "@" and have a name`);
   }
   return tags;
+}
+
+// Git paths never start with "./" or "/", so such a glob would silently match nothing.
+function globList(value: unknown, field: string): string[] {
+  const globs = stringList(value, field);
+  for (const glob of globs) {
+    if (glob.startsWith('./') || glob.startsWith('/')) throw new Error(`${field}: glob "${glob}" must be relative to the repo root, without "./" or "/"`);
+  }
+  return globs;
 }
 
 // A misspelt key would silently drop rules (e.g. every full-run trigger), so unknown keys are errors.
@@ -55,13 +64,15 @@ export function parseConfig(text: string): Config {
   }
 
   if (!Array.isArray(raw.mappings ?? [])) throw new Error('mappings must be a list');
-  const mappings = (raw.mappings ?? []).map((m: Record<string, unknown>, i: number) => {
+  const mappings = (raw.mappings ?? []).map((m: unknown, i: number) => {
     const field = `mappings[${i}]`;
-    rejectUnknownKeys(m, ['paths', 'tags', 'tests'], `${field}: `);
-    const paths = stringList(m.paths, `${field}.paths`);
+    if (m === null || typeof m !== 'object' || Array.isArray(m)) throw new Error(`${field} must be a mapping`);
+    rejectUnknownKeys(m as Record<string, unknown>, ['paths', 'tags', 'tests'], `${field}: `);
+    const { paths: rawPaths, tags: rawTags, tests: rawTests } = m as Record<string, unknown>;
+    const paths = globList(rawPaths, `${field}.paths`);
     if (paths.length === 0) throw new Error(`${field}.paths must not be empty`);
-    const tags = tagList(m.tags, `${field}.tags`);
-    const tests = stringList(m.tests, `${field}.tests`);
+    const tags = tagList(rawTags, `${field}.tags`);
+    const tests = stringList(rawTests, `${field}.tests`);
     if (tags.length === 0 && tests.length === 0) throw new Error(`${field} needs tags or tests`);
     return { paths, tags, tests };
   });
@@ -69,8 +80,8 @@ export function parseConfig(text: string): Config {
   return {
     testDir: testDir(raw.test_dir),
     alwaysRunTags: tagList(raw.always_run_tags, 'always_run_tags'),
-    fullRunTriggers: stringList(raw.full_run_triggers, 'full_run_triggers'),
-    ignorePaths: stringList(raw.ignore_paths, 'ignore_paths'),
+    fullRunTriggers: globList(raw.full_run_triggers, 'full_run_triggers'),
+    ignorePaths: globList(raw.ignore_paths, 'ignore_paths'),
     mappings,
     unmappedBehavior,
   };

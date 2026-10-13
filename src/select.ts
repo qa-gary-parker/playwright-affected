@@ -19,7 +19,10 @@ export type ListedSelection = Selection & { dead_entries: string[]; selected: nu
 
 const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/;
 
-const matchesAny = (file: string, globs: string[]) => globs.some((glob) => matchesGlob(file, glob));
+// matchesGlob never lets * or ** match a name that starts with ".". Hiding that dot in both the
+// path and the glob lets dot folders match like any other, and a literal ".github" still matches.
+const undot = (text: string) => text.replace(/(^|[/{,])\./g, '$1\uE000');
+const matchesAny = (file: string, globs: string[]) => globs.some((glob) => matchesGlob(undot(file), undot(glob)));
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
