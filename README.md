@@ -28,6 +28,8 @@ See [`examples/e2e-map.yml`](examples/e2e-map.yml). Each changed file is checked
 
 ## Commands
 
+It is not on npm yet. Install it from GitHub, which builds it on install: `npm install -D github:qa-gary-parker/playwright-affected`.
+
 ```sh
 PLAYWRIGHT_JSON_OUTPUT_NAME=list.json npx playwright test --list --reporter=json
 
