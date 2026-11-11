@@ -1,6 +1,6 @@
 {
   "name": "playwright-affected",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Change-based Playwright test selection: map a git diff to tags and test paths, fail open to the full suite.",
   "author": "Gary Parker",
   "repository": {
