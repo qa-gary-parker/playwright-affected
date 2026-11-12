@@ -9,6 +9,8 @@ Change-based test selection for Playwright. Maps a PR's git diff to tags, test p
 - Measures before you trust it. `replay` scores a map against merged PRs. `shadow` counts the failures a selection would have missed.
 - Works in any CI. It needs Node 22.5+ and git. `replay` also needs an authenticated `gh` CLI. Tested with Playwright 1.64.
 
+Overview and FAQ: [garyparker.dev/projects/playwright-affected](https://garyparker.dev/projects/playwright-affected)
+
 ## Quick start
 
 ```sh
