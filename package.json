@@ -7,7 +7,7 @@
     "type": "git",
     "url": "git+https://github.com/qa-gary-parker/playwright-affected.git"
   },
-  "homepage": "https://github.com/qa-gary-parker/playwright-affected#readme",
+  "homepage": "https://garyparker.dev/projects/playwright-affected",
   "bugs": "https://github.com/qa-gary-parker/playwright-affected/issues",
   "type": "module",
   "bin": {
