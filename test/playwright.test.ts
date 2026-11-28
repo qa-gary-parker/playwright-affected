@@ -11,6 +11,10 @@ describe('flattenReport', () => {
     expect(all.map((t) => t.id)).toContain('api › billing/billing.test.ts › billing › upgrades plan');
   });
 
+  it('reads the report when Playwright prints to stdout first', () => {
+    const noisy = flattenReport(runFixture([], { GITHUB_ACTIONS: '1', DEBUG_GIT_COMMIT_INFO: '1' }));
+    expect(noisy.map((t) => t.id)).toEqual(all.map((t) => t.id));
+  });
 });
 
 describe('flattenReport results', () => {
